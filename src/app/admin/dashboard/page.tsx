@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ interface Installment {
   paymentReceiptUrl: string | null;
 }
 
-function DashboardContent() {
+export default function AdminDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [installments, setInstallments] = useState<Installment[]>([]);
@@ -303,27 +303,5 @@ function DashboardContent() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-export default function AdminDashboard() {
-  return (
-    <Suspense fallback={
-      <div className="container mx-auto p-4">
-        <Card className="mb-4">
-          <CardHeader>
-            <CardTitle>Payment Management</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-[200px]" />
-              <Skeleton className="h-[400px] w-full" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    }>
-      <DashboardContent />
-    </Suspense>
   );
 } 
