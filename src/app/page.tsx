@@ -8,6 +8,10 @@ import { useRouter } from 'next/navigation';
 export default function Home() {
   const router = useRouter();
 
+  const handleStudentFound = (student: any) => {
+    router.push(`/students/${student.id}`);
+  };
+
   return (
     <main className="min-h-screen p-8 bg-background">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -21,7 +25,7 @@ export default function Home() {
         </div>
 
         <div className="space-y-6">
-          <StudentSearch />
+          <StudentSearch onStudentFound={handleStudentFound} />
           
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

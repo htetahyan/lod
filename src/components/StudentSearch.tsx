@@ -7,8 +7,30 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
+interface Student {
+  id: number;
+  studentName: string;
+  dateOfBirth: string;
+  yearLevel: string;
+  academicYear: string;
+  schoolLocation: string;
+  contactNumber: string;
+}
+
+interface Installment {
+  id: number;
+  studentId: number;
+  installmentNumber: number | null;
+  amount: number;
+  status: string;
+  paymentDate: string | null;
+  paymentReceiptUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface StudentSearchProps {
-  onStudentFound: (student: any, installments: any[]) => void;
+  onStudentFound: (student: Student) => void;
 }
 
 export function StudentSearch({ onStudentFound }: StudentSearchProps) {
@@ -39,7 +61,7 @@ export function StudentSearch({ onStudentFound }: StudentSearchProps) {
         throw new Error(data.error);
       }
 
-      onStudentFound(data.data.student, data.data.installments);
+      onStudentFound(data.data.student);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to find student");
     } finally {

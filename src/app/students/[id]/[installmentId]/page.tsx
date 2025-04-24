@@ -9,19 +9,20 @@ import { InstallmentsGrid } from '@/components/receipt/InstallmentsGrid'
 import { ReceiptFooter } from '@/components/receipt/ReceiptFooter'
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string
     installmentId: string
-  }
+  }>
 }
 
 export default async function ReceiptPage({ params }: PageProps) {
+  const { id, installmentId } = await params
   const student = await db.query.students.findFirst({
-    where: eq(students.id, parseInt(params.id)),
+    where: eq(students.id, parseInt(id)),
   })
 
   const installment = await db.query.installments.findFirst({
-    where: eq(installments.id, parseInt(params.installmentId)),
+    where: eq(installments.id, parseInt(installmentId)),
   })
 
   if (!student || !installment) {
