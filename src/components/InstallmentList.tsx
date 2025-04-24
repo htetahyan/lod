@@ -10,14 +10,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { format } from 'date-fns';
-import { Eye } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import Image from 'next/image';
+import { ExternalLink, Receipt } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 
 interface Installment {
   id: number;
@@ -25,9 +20,9 @@ interface Installment {
   amount: number;
   status: string;
   paymentDate: string | null;
-  paymentReceiptUrl: string | null;
-  createdAt: string;
-  updatedAt: string;
+  paymentMethod: 'cash' | 'bank';
+  bankName: string | null;
+  paymentReceiptUrl?: string | null;
 }
 
 interface InstallmentListProps {
@@ -35,17 +30,23 @@ interface InstallmentListProps {
 }
 
 export function InstallmentList({ installments }: InstallmentListProps) {
+  const { id: studentId } = useParams();
+  
   const getStatusColor = (status: string): string => {
     switch (status.toLowerCase()) {
       case 'paid':
-        return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
+        return 'bg-green-100 text-green-800';
       case 'pending':
-        return 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20';
-      case 'overdue':
-        return 'bg-red-500/10 text-red-500 hover:bg-red-500/20';
+        return 'bg-yellow-100 text-yellow-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
       default:
-        return 'bg-gray-500/10 text-gray-500 hover:bg-gray-500/20';
+        return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const formatAmount = (amount: number): string => {
+    return new Intl.NumberFormat('en-US').format(amount);
   };
 
   return (
@@ -57,14 +58,17 @@ export function InstallmentList({ installments }: InstallmentListProps) {
             <TableHead>Amount</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Payment Date</TableHead>
+            <TableHead>Payment Method</TableHead>
+            <TableHead>Bank Name</TableHead>
             <TableHead>Receipt</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {installments.map((installment) => (
             <TableRow key={installment.id}>
               <TableCell>{installment.installmentNumber}</TableCell>
-              <TableCell>{installment.amount.toLocaleString()} MMK</TableCell>
+              <TableCell>{formatAmount(installment.amount)}</TableCell>
               <TableCell>
                 <Badge className={getStatusColor(installment.status)}>
                   {installment.status}
@@ -72,32 +76,37 @@ export function InstallmentList({ installments }: InstallmentListProps) {
               </TableCell>
               <TableCell>
                 {installment.paymentDate
-                  ? format(new Date(installment.paymentDate), 'MMM d, yyyy')
-                  : '-'}
+                  ? new Date(installment.paymentDate).toLocaleDateString()
+                  : "-"}
               </TableCell>
               <TableCell>
+                <Badge variant="outline" className="capitalize">
+                  {installment.paymentMethod}
+                </Badge>
+              </TableCell>
+              <TableCell>{installment.bankName || "-"}</TableCell>
+              <TableCell>
                 {installment.paymentReceiptUrl ? (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
-                        <Eye className="h-4 w-4" />
-                      </button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-[90vw] max-h-[90vh] w-[800px] h-[600px]">
-                      <div className="relative w-full h-full">
-                        <Image
-                          src={installment.paymentReceiptUrl}
-                          alt={`Payment receipt for installment ${installment.installmentNumber}`}
-                          fill
-                          className="object-contain"
-                          sizes="(max-width: 800px) 100vw, 800px"
-                        />
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <a
+                    href={installment.paymentReceiptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-blue-500 hover:text-blue-700"
+                  >
+                    View <ExternalLink size={16} />
+                  </a>
                 ) : (
-                  '-'
+                  "-"
                 )}
+              </TableCell>
+              <TableCell>
+                <Link
+                  href={`/students/${studentId}/${installment.id}`}
+                  className="flex items-center gap-1 text-blue-500 hover:text-blue-700"
+                >
+                  <Receipt size={16} />
+                  View Receipt
+                </Link>
               </TableCell>
             </TableRow>
           ))}

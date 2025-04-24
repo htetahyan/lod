@@ -1,4 +1,4 @@
-import { bigint, boolean, pgTable, serial, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { bigint, boolean, pgEnum, pgTable, serial, text, timestamp, varchar, integer } from 'drizzle-orm/pg-core';
 // Students table - contains all student and enrollment information
 export const students = pgTable('students', {
   id: serial('id').primaryKey(),
@@ -17,16 +17,21 @@ export const students = pgTable('students', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
-
+export const installmentTypeEnum = pgEnum('installment_type', ['one_time', 'monthly']);
+export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'bank']);
 // Installments table - tracks all installment payments
 export const installments = pgTable('installments', {
   id: serial('id').primaryKey(),
   studentId: serial('student_id').references(() => students.id),
-  installmentNumber: serial('installment_number').notNull(), // 0 for one-time payment, 1-7 for installments
+  installmentType: installmentTypeEnum('installment_type'),
+  installmentNumber: integer('installment_number'), // null for one-time payment, 1-7 for installments
   amount: bigint('amount', { mode: 'number' }).notNull(),
-  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'paid', 'overdue'
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'paid', 'rejected'
   paymentDate: timestamp('payment_date'),
   paymentReceiptUrl: text('payment_receipt_url'),
+  note: text('note'),
+  paymentMethod: paymentMethodEnum('payment_method'),
+  bankName: varchar('bank_name', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

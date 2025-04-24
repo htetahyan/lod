@@ -15,7 +15,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Pagination,
   PaginationContent,
@@ -25,6 +33,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { Receipt } from "lucide-react";
+import Link from "next/link";
 
 interface Installment {
   id: number;
@@ -34,8 +45,10 @@ interface Installment {
   status: string;
   receiptUrl: string | null;
   paymentDate: string | null;
-  installmentNumber: number;
+  installmentNumber: number | null;
   paymentReceiptUrl: string | null;
+  createdAt: string;
+  note: string | null;
 }
 
 export function DashboardContent() {
@@ -47,6 +60,10 @@ export function DashboardContent() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
   const [currentPage, setCurrentPage] = useState(Number(searchParams.get('page')) || 1);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedInstallment, setSelectedInstallment] = useState<number | null>(null);
+  const [note, setNote] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const itemsPerPage = 10;
 
   // Update URL when filters change
@@ -122,18 +139,29 @@ export function DashboardContent() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id, status: newStatus }),
+        body: JSON.stringify({ id, status: newStatus, note }),
       });
 
       if (response.ok) {
         toast.success('Status updated successfully');
         fetchInstallments(); // Refresh the list
+        setIsDialogOpen(false);
+        setNote('');
+        setSelectedInstallment(null);
+        setActionType(null);
       } else {
         toast.error('Failed to update status');
       }
     } catch {
       toast.error('Failed to update status');
     }
+  };
+
+  const openActionDialog = (id: number, action: 'approve' | 'reject') => {
+    setSelectedInstallment(id);
+    setActionType(action);
+    setNote('');
+    setIsDialogOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -154,6 +182,16 @@ export function DashboardContent() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentInstallments = filteredInstallments.slice(startIndex, endIndex);
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    try {
+      const date = parseISO(dateString);
+      return isValid(date) ? format(date, 'MMM dd, yyyy - hh:mm a') : '-';
+    } catch {
+      return '-';
+    }
+  };
 
   return (
     <Card className="mb-4">
@@ -185,36 +223,38 @@ export function DashboardContent() {
               <TableHead>Student Name</TableHead>
               <TableHead>Installment #</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Created Date</TableHead>
               <TableHead>Payment Date</TableHead>
               <TableHead>Receipt</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Note</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              // Loading skeleton
-              Array.from({ length: 5 }).map((_, index) => (
-                <TableRow key={index}>
-                  <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[50px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-                </TableRow>
-              ))
+              <TableRow>
+                <TableCell colSpan={9}>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : Array.isArray(currentInstallments) && currentInstallments.length > 0 ? (
               currentInstallments.map((installment) => (
                 <TableRow key={installment.id}>
                   <TableCell>{installment.studentName}</TableCell>
-                  <TableCell>{installment.installmentNumber}</TableCell>
+                  <TableCell>
+                    {installment.installmentNumber === null ? 'One-Time' : installment.installmentNumber}
+                  </TableCell>
                   <TableCell>{installment.amount.toLocaleString()} Ks</TableCell>
                   <TableCell>
-                    {installment.paymentDate
-                      ? format(new Date(installment.paymentDate), 'MMM dd, yyyy')
-                      : '-'}
+                    {formatDate(installment.createdAt)}
+                  </TableCell>
+                  <TableCell>
+                    {formatDate(installment.paymentDate)}
                   </TableCell>
                   <TableCell>
                     {installment.receiptUrl ? (
@@ -236,30 +276,29 @@ export function DashboardContent() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2">
-                      {installment.status === 'pending' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleStatusChange(installment.id, 'paid')}
-                        >
-                          Approve
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleStatusChange(installment.id, 'rejected')}
-                      >
-                        Reject
-                      </Button>
-                    </div>
+                    {installment.note || '-'}
+                  </TableCell>
+                  <TableCell className="space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleStatusChange(installment.id, 'paid')}
+                    >
+                      Update Status
+                    </Button>
+                    <Link
+                      href={`/students/${installment.studentId}/${installment.id}`}
+                      className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700"
+                    >
+                      <Receipt size={16} />
+                      Receipt
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
+                <TableCell colSpan={9} className="text-center py-4">
                   No installments found
                 </TableCell>
               </TableRow>
@@ -267,17 +306,16 @@ export function DashboardContent() {
           </TableBody>
         </Table>
 
-        {!isLoading && totalPages > 1 && (
-          <div className="mt-4">
+        {totalPages > 1 && (
+          <div className="mt-4 flex justify-center">
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <PaginationPrevious
+                  <PaginationPrevious 
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                    disabled={currentPage === 1}
                   />
                 </PaginationItem>
-                
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <PaginationItem key={page}>
                     <PaginationLink
@@ -288,17 +326,64 @@ export function DashboardContent() {
                     </PaginationLink>
                   </PaginationItem>
                 ))}
-                
                 <PaginationItem>
                   <PaginationNext
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                    disabled={currentPage === totalPages}
                   />
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
           </div>
         )}
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {actionType === 'approve' ? 'Approve Payment' : 'Reject Payment'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label htmlFor="note" className="text-sm font-medium">
+                  Add a note
+                </label>
+                <Textarea
+                  id="note"
+                  placeholder="Enter any additional notes..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDialogOpen(false);
+                  setNote('');
+                  setSelectedInstallment(null);
+                  setActionType(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (selectedInstallment && actionType) {
+                    handleStatusChange(
+                      selectedInstallment,
+                      actionType === 'approve' ? 'paid' : 'rejected'
+                    );
+                  }
+                }}
+              >
+                {actionType === 'approve' ? 'Approve' : 'Reject'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

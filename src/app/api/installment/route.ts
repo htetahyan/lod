@@ -8,12 +8,14 @@ export const GET = async (req: Request) => {
     const { searchParams } = new URL(req.url);
     const studentName = searchParams.get('studentName');
     const dateOfBirth = searchParams.get('dateOfBirth');
+    const contactNumber = searchParams.get('contactNumber');
 
-    if (!studentName || !dateOfBirth) {
+    // Allow search by either (name and DOB) or phone number
+    if (!((studentName && dateOfBirth) || contactNumber)) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Student name and date of birth are required',
+          error: 'Either student name and date of birth, or contact number is required',
         },
         { status: 400 }
       );
@@ -24,10 +26,12 @@ export const GET = async (req: Request) => {
       .select()
       .from(students)
       .where(
-        and(
-          eq(students.studentName, studentName),
-          eq(students.dateOfBirth, new Date(dateOfBirth))
-        )
+        contactNumber
+          ? eq(students.contactNumber, contactNumber)
+          : and(
+              eq(students.studentName, studentName!),
+              eq(students.dateOfBirth, new Date(dateOfBirth!))
+            )
       );
 
     if (student.length === 0) {
@@ -68,9 +72,17 @@ export const GET = async (req: Request) => {
 export const POST = async (req: Request) => {
   try {
     const data = await req.json();
-    const { studentId, amount, isOneTimePayment, paymentReceiptUrl } = data;
+    const { 
+      studentId, 
+      amount, 
+      isOneTimePayment, 
+      paymentReceiptUrl,
+      paymentMethod,
+      bankName,
+      installmentNumber 
+    } = data;
 
-    if (!studentId || amount === undefined || isOneTimePayment === undefined || !paymentReceiptUrl) {
+    if (!studentId || amount === undefined || isOneTimePayment === undefined || !paymentReceiptUrl || !paymentMethod) {
       return NextResponse.json(
         {
           success: false,
@@ -80,13 +92,27 @@ export const POST = async (req: Request) => {
       );
     }
 
+    // Validate payment method and bank name
+    if (paymentMethod === 'bank' && !bankName) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Bank name is required for bank payments',
+        },
+        { status: 400 }
+      );
+    }
+
     // Create installment record
     const [installment] = await db.insert(installments).values({
       studentId,
-      installmentNumber: isOneTimePayment ? 0 : 1, // 0 for one-time payment, 1 for first installment
+      installmentType: isOneTimePayment ? 'one_time' : 'monthly',
+      installmentNumber: isOneTimePayment ? null : installmentNumber || 1,
       amount,
       status: 'pending',
       paymentReceiptUrl,
+      paymentMethod,
+      bankName: paymentMethod === 'bank' ? bankName : null,
       createdAt: new Date(),
       updatedAt: new Date(),
       paymentDate: null, // Explicitly set to null since it's not paid yet

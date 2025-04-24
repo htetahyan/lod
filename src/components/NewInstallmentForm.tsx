@@ -7,14 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import { UploadButton } from "@/utils/uploadthing";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState } from "react";
+import { UploadButton } from "@/utils/uploadthing";
 import { Upload } from "lucide-react";
 import { useCreateInstallment } from "@/hooks/use-installments";
 import { useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
+import { cn } from "@/lib/utils";
 
 interface NewInstallmentFormProps {
   studentId: number;
@@ -25,7 +26,10 @@ interface NewInstallmentFormProps {
 interface FormValues {
   amount: string;
   isOneTimePayment: boolean;
+  installmentNumber: string;
   paymentReceiptUrl: string;
+  paymentMethod: 'cash' | 'bank';
+  bankName: string;
 }
 
 const validationSchema = Yup.object({
@@ -34,7 +38,19 @@ const validationSchema = Yup.object({
     .positive('Amount must be positive')
     .integer('Amount must be a whole number'),
   isOneTimePayment: Yup.boolean().required('Payment type is required'),
+  installmentNumber: Yup.number()
+    .when('isOneTimePayment', {
+      is: false,
+      then: (schema) => schema.required('Installment number is required'),
+      otherwise: (schema) => schema.notRequired(),
+    }),
   paymentReceiptUrl: Yup.string().required('Payment proof is required'),
+  paymentMethod: Yup.string().oneOf(['cash', 'bank']).required('Payment method is required'),
+  bankName: Yup.string().when('paymentMethod', {
+    is: 'bank',
+    then: (schema) => schema.required('Bank name is required'),
+    otherwise: (schema) => schema.notRequired(),
+  }),
 });
 
 export function NewInstallmentForm({ studentId, onSuccess, onError }: NewInstallmentFormProps) {
@@ -46,7 +62,10 @@ export function NewInstallmentForm({ studentId, onSuccess, onError }: NewInstall
     initialValues: {
       amount: '',
       isOneTimePayment: true,
+      installmentNumber: '',
       paymentReceiptUrl: '',
+      paymentMethod: 'cash',
+      bankName: '',
     },
     validationSchema,
     onSubmit: async (values) => {
@@ -55,7 +74,10 @@ export function NewInstallmentForm({ studentId, onSuccess, onError }: NewInstall
           studentId,
           amount: Number(values.amount),
           isOneTimePayment: values.isOneTimePayment,
+          installmentNumber: values.isOneTimePayment ? null : Number(values.installmentNumber),
           paymentReceiptUrl: values.paymentReceiptUrl,
+          paymentMethod: values.paymentMethod,
+          bankName: values.paymentMethod === 'bank' ? values.bankName : null,
         }, {
           onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['student', studentId.toString()] });
@@ -129,6 +151,74 @@ export function NewInstallmentForm({ studentId, onSuccess, onError }: NewInstall
               </p>
             )}
           </div>
+
+          {!formik.values.isOneTimePayment && (
+            <div className="space-y-2">
+              <Label htmlFor="installmentNumber">Installment Number</Label>
+              <Select
+                value={formik.values.installmentNumber}
+                onValueChange={(value) => formik.setFieldValue('installmentNumber', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select installment number" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                    <SelectItem key={num} value={num.toString()}>
+                      {num}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formik.touched.installmentNumber && formik.errors.installmentNumber && (
+                <div className="text-sm text-red-500">{formik.errors.installmentNumber}</div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <Label>Payment Method</Label>
+            <RadioGroup
+              value={formik.values.paymentMethod}
+              onValueChange={(value: 'cash' | 'bank') =>
+                formik.setFieldValue('paymentMethod', value)
+              }
+              className="flex space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="cash" id="cash" />
+                <Label htmlFor="cash">Cash</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="bank" id="bank" />
+                <Label htmlFor="bank">Bank</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {formik.values.paymentMethod === 'bank' && (
+            <div className="space-y-2">
+              <Label htmlFor="bankName">Bank Name</Label>
+              <Select
+                value={formik.values.bankName}
+                onValueChange={(value) => formik.setFieldValue('bankName', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select bank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {['AYA', 'KBZ', 'CB', 'UAB', 'AGD', 'MAB'].map((bank) => (
+                    <SelectItem key={bank} value={bank}>
+                      {bank}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formik.touched.bankName && formik.errors.bankName && (
+                <div className="text-sm text-red-500">{formik.errors.bankName}</div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Payment Proof</Label>

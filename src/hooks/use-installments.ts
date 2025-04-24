@@ -4,7 +4,7 @@ import { toast } from "sonner";
 interface Installment {
   id: number;
   studentId: number;
-  installmentNumber: number;
+  installmentNumber: number | null;
   amount: number;
   status: string;
   paymentReceiptUrl: string;
@@ -17,7 +17,15 @@ interface CreateInstallmentPayload {
   studentId: number;
   amount: number;
   isOneTimePayment: boolean;
+  installmentNumber: number | null;
   paymentReceiptUrl: string;
+  paymentMethod: 'cash' | 'bank';
+  bankName: string | null;
+}
+
+interface UpdateInstallmentStatusPayload {
+  id: number;
+  status: 'pending' | 'paid' | 'overdue';
 }
 
 // Fetch installments for a student
@@ -39,8 +47,8 @@ export function useStudentInstallments(studentId: number) {
 export function useCreateInstallment() {
   const queryClient = useQueryClient();
 
-  return useMutation<Installment, Error, CreateInstallmentPayload>({
-    mutationFn: async (payload) => {
+  return useMutation({
+    mutationFn: async (payload: CreateInstallmentPayload) => {
       const response = await fetch('/api/installment', {
         method: 'POST',
         headers: {
@@ -49,23 +57,51 @@ export function useCreateInstallment() {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create installment');
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error);
       }
 
-      const data = await response.json();
-      return data.data.installment as Installment;
+      return data.data;
     },
-    onSuccess: (_data: Installment, variables: CreateInstallmentPayload) => {
-      // Invalidate the installments query for this student
-      queryClient.invalidateQueries({
-        queryKey: ['installments', variables.studentId],
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
       toast.success('Installment created successfully');
     },
     onError: (error: Error) => {
-      toast.error(`Failed to create installment: ${error.message}`);
+      toast.error(error.message);
+    },
+  });
+}
+
+export function useUpdateInstallmentStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: UpdateInstallmentStatusPayload) => {
+      const response = await fetch(`/api/installment/${payload.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: payload.status }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      return data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      toast.success('Installment status updated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 } 

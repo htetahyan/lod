@@ -1,83 +1,87 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-export interface Student {
-  id: number;
-  studentName: string;
-  dateOfBirth: string;
-  yearLevel: string;
-  academicYear: string;
+interface StudentSearchProps {
+  onStudentFound: (student: any, installments: any[]) => void;
 }
 
-export function StudentSearch() {
-  const router = useRouter();
+export function StudentSearch({ onStudentFound }: StudentSearchProps) {
   const [studentName, setStudentName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = async () => {
+    if (!studentName && !contactNumber) {
+      toast.error("Please provide either student name or contact number");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/installment?studentName=${encodeURIComponent(studentName)}&dateOfBirth=${encodeURIComponent(dateOfBirth)}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        router.push(`/students/${data.data.student.id}`);
-      } else {
-        toast.error(data.error || 'Student not found');
+      const params = new URLSearchParams();
+      if (studentName) {
+        params.append('studentName', studentName);
       }
-    } catch {
-      toast.error('Failed to search for student');
+      if (contactNumber) {
+        params.append('contactNumber', contactNumber);
+      }
+
+      const response = await fetch(`/api/installment?${params.toString()}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error);
+      }
+
+      onStudentFound(data.data.student, data.data.installments);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to find student");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Card className="w-full">
-      <CardContent className="pt-6">
-        <form onSubmit={handleSearch} className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label htmlFor="studentName" className="text-sm font-medium">
-                Student Name
-              </label>
-              <Input
-                id="studentName"
-                name="studentName"
-                placeholder="Enter student name"
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="dateOfBirth" className="text-sm font-medium">
-                Date of Birth
-              </label>
-              <Input
-                id="dateOfBirth"
-                name="dateOfBirth"
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-              />
-            </div>
-          </div>
-          <Button
-            type="submit"
-            disabled={isLoading || (!studentName && !dateOfBirth)}
-            className="w-full"
-          >
-            {isLoading ? 'Searching...' : 'Search Student'}
-          </Button>
-        </form>
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader>
+        <CardTitle>Search Student</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="studentName">Student Name</Label>
+          <Input
+            id="studentName"
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+            placeholder="Enter student name"
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="contactNumber">Contact Number</Label>
+          <Input
+            id="contactNumber"
+            value={contactNumber}
+            onChange={(e) => setContactNumber(e.target.value)}
+            placeholder="Enter contact number"
+            autoComplete="off"
+          />
+        </div>
+
+        <Button
+          className="w-full"
+          onClick={handleSearch}
+          disabled={isLoading}
+        >
+          {isLoading ? "Searching..." : "Search"}
+        </Button>
       </CardContent>
     </Card>
   );
