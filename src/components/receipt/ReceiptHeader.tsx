@@ -10,16 +10,13 @@ export function ReceiptHeader({ date }: ReceiptHeaderProps) {
     <div className="flex items-center justify-between p-4 bg-white">
       <div className="flex items-center gap-2">
         <Image
-          src="/logo.png"
-          alt="IDUISN Logo"
-          width={80}
-          height={80}
+          src="/sitelogo.svg"
+          alt="Company Logo"
+          width={120}
+          height={40}
           className="object-contain"
         />
-        <div className="text-navy-900 font-semibold">
-          <h1 className="text-xl">IDUISN</h1>
-          <p className="text-sm">International Digital School</p>
-        </div>
+       
       </div>
       <div className="space-y-1">
         <h2 className="font-semibold text-lg">Cash Receipt</h2>

@@ -80,11 +80,17 @@ export function InstallmentList({ installments }: InstallmentListProps) {
                   : "-"}
               </TableCell>
               <TableCell>
-                <Badge variant="outline" className="capitalize">
-                  {installment.paymentMethod}
-                </Badge>
+                {installment.status.toLowerCase() === 'paid' && installment.paymentMethod ? (
+                  <Badge variant="outline" className="capitalize">
+                    {installment.paymentMethod}
+                  </Badge>
+                ) : "-"}
               </TableCell>
-              <TableCell>{installment.bankName || "-"}</TableCell>
+              <TableCell>
+                {installment.status.toLowerCase() === 'paid' && 
+                 installment.paymentMethod === 'bank' && 
+                 installment.bankName ? installment.bankName : "-"}
+              </TableCell>
               <TableCell>
                 {installment.paymentReceiptUrl ? (
                   <a
@@ -100,13 +106,17 @@ export function InstallmentList({ installments }: InstallmentListProps) {
                 )}
               </TableCell>
               <TableCell>
-                <Link
-                  href={`/students/${studentId}/${installment.id}`}
-                  className="flex items-center gap-1 text-blue-500 hover:text-blue-700"
-                >
-                  <Receipt size={16} />
-                  View Receipt
-                </Link>
+                {installment.status.toLowerCase() === 'paid' && installment.status.toLowerCase() !== 'rejected' ? (
+                  <Link
+                    href={`/students/${studentId}/${installment.id}`}
+                    className="flex items-center gap-1 text-blue-500 hover:text-blue-700"
+                  >
+                    <Receipt size={16} />
+                    View Customer Receipt
+                  </Link>
+                ) : (
+                  "-"
+                )}
               </TableCell>
             </TableRow>
           ))}

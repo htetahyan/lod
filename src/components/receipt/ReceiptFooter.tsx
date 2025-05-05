@@ -66,7 +66,7 @@ export function ReceiptFooter({
         </div>
         <div className="w-24 h-24 relative">
           <Image
-            src={qrCodeUrl}
+            src="/qr-code.svg"
             alt="QR Code"
             fill
             className="object-contain"

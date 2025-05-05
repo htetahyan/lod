@@ -49,6 +49,8 @@ interface Installment {
   paymentReceiptUrl: string | null;
   createdAt: string;
   note: string | null;
+  paymentMethod: string | null;
+  bankName: string | null;
 }
 
 export function DashboardContent() {
@@ -64,6 +66,7 @@ export function DashboardContent() {
   const [note, setNote] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const itemsPerPage = 10;
 
   // Update URL when filters change
@@ -134,12 +137,21 @@ export function DashboardContent() {
 
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
+      const today = new Date().toISOString();
+      
+      const updateData = {
+        id,
+        status: newStatus, 
+        note,
+        paymentDate: newStatus === 'paid' ? today : null,
+      };
+
       const response = await fetch('/api/admin/installments', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id, status: newStatus, note }),
+        body: JSON.stringify(updateData),
       });
 
       if (response.ok) {
@@ -160,7 +172,18 @@ export function DashboardContent() {
   const openActionDialog = (id: number, action: 'approve' | 'reject') => {
     setSelectedInstallment(id);
     setActionType(action);
-    setNote('');
+    
+    // Find the selected installment
+    const installment = installments.find(inst => inst.id === id);
+    
+    if (installment) {
+      // Pre-fill existing values if updating
+      setNote(installment.note || '');
+    } else {
+      // Default values if installment not found
+      setNote('');
+    }
+    
     setIsDialogOpen(true);
   };
 
@@ -193,6 +216,11 @@ export function DashboardContent() {
     }
   };
 
+  const openActionsMenu = (id: number) => {
+    setSelectedInstallment(id);
+    setIsActionsMenuOpen(true);
+  };
+
   return (
     <Card className="mb-4">
       <CardHeader>
@@ -217,94 +245,87 @@ export function DashboardContent() {
           </select>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Student Name</TableHead>
-              <TableHead>Installment #</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Created Date</TableHead>
-              <TableHead>Payment Date</TableHead>
-              <TableHead>Receipt</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Note</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
+        <div className="w-full overflow-x-auto">
+          <Table className="min-w-full">
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={9}>
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                  </div>
-                </TableCell>
+                <TableHead className="w-[15%]">Student Name</TableHead>
+                <TableHead className="w-[8%]">Installment</TableHead>
+                <TableHead className="w-[10%]">Amount</TableHead>
+                <TableHead className="w-[15%]">Created</TableHead>
+                <TableHead className="w-[10%]">Payment Method</TableHead>
+                <TableHead className="w-[10%]">Bank</TableHead>
+                <TableHead className="w-[10%]">Status</TableHead>
+                <TableHead className="w-[12%]">Note</TableHead>
+                <TableHead className="w-[10%]">Actions</TableHead>
               </TableRow>
-            ) : Array.isArray(currentInstallments) && currentInstallments.length > 0 ? (
-              currentInstallments.map((installment) => (
-                <TableRow key={installment.id}>
-                  <TableCell>{installment.studentName}</TableCell>
-                  <TableCell>
-                    {installment.installmentNumber === null ? 'One-Time' : installment.installmentNumber}
-                  </TableCell>
-                  <TableCell>{installment.amount.toLocaleString()} Ks</TableCell>
-                  <TableCell>
-                    {formatDate(installment.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    {formatDate(installment.paymentDate)}
-                  </TableCell>
-                  <TableCell>
-                    {installment.receiptUrl ? (
-                      <a 
-                        href={installment.receiptUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        View Receipt
-                      </a>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(installment.status)}>
-                      {installment.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {installment.note || '-'}
-                  </TableCell>
-                  <TableCell className="space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleStatusChange(installment.id, 'paid')}
-                    >
-                      Update Status
-                    </Button>
-                    <Link
-                      href={`/students/${installment.studentId}/${installment.id}`}
-                      className="inline-flex items-center gap-1 text-blue-500 hover:text-blue-700"
-                    >
-                      <Receipt size={16} />
-                      Receipt
-                    </Link>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={9}>
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-4">
-                  No installments found
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ) : Array.isArray(currentInstallments) && currentInstallments.length > 0 ? (
+                currentInstallments.map((installment) => (
+                  <TableRow key={installment.id}>
+                    <TableCell className="whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
+                      {installment.studentName}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {installment.installmentNumber === null ? 'One-Time' : installment.installmentNumber}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {installment.amount.toLocaleString()} Ks
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {formatDate(installment.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      {installment.paymentMethod ? (
+                        <Badge variant="outline" className="capitalize">
+                          {installment.paymentMethod}
+                        </Badge>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell className="truncate max-w-[100px]">
+                      {installment.bankName || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getStatusColor(installment.status)}>
+                        {installment.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="truncate max-w-[150px]" title={installment.note || ''}>
+                      {installment.note || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openActionsMenu(installment.id)}
+                        className="w-full"
+                      >
+                        Actions
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-4">
+                    No installments found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
         {totalPages > 1 && (
           <div className="mt-4 flex justify-center">
@@ -341,7 +362,11 @@ export function DashboardContent() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {actionType === 'approve' ? 'Approve Payment' : 'Reject Payment'}
+                {actionType === 'approve' 
+                  ? (selectedInstallment && installments.find(i => i.id === selectedInstallment)?.status === 'paid' 
+                    ? 'Update Payment' 
+                    : 'Approve Payment')
+                  : 'Reject Payment'}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -382,6 +407,48 @@ export function DashboardContent() {
                 {actionType === 'approve' ? 'Approve' : 'Reject'}
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isActionsMenuOpen} onOpenChange={setIsActionsMenuOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Actions</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 gap-4 py-4">
+              <Button
+                onClick={() => {
+                  setIsActionsMenuOpen(false);
+                  openActionDialog(selectedInstallment!, 'approve');
+                }}
+                className="bg-green-50 text-green-600 hover:bg-green-100"
+              >
+                {selectedInstallment && 
+                 installments.find(i => i.id === selectedInstallment)?.status === 'paid' 
+                  ? 'Update Payment' 
+                  : 'Approve Payment'}
+              </Button>
+              
+              <Button
+                onClick={() => {
+                  setIsActionsMenuOpen(false);
+                  openActionDialog(selectedInstallment!, 'reject');
+                }}
+                className="bg-red-50 text-red-600 hover:bg-red-100"
+              >
+                Reject Payment
+              </Button>
+              
+              {selectedInstallment && installments.find(i => i.id === selectedInstallment)?.status === 'paid' && (
+                <Link
+                  href={`/students/${installments.find(i => i.id === selectedInstallment)?.studentId}/${selectedInstallment}`}
+                  className="flex justify-center items-center gap-2 px-4 py-2 border rounded-md hover:bg-gray-50"
+                >
+                  <Receipt size={16} />
+                  View Receipt
+                </Link>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </CardContent>

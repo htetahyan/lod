@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
 import { students, installments } from '@/lib/schema'
-import { eq } from 'drizzle-orm'
+import { eq, asc } from 'drizzle-orm'
 import { ReceiptHeader } from '@/components/receipt/ReceiptHeader'
 import { StudentInfo } from '@/components/receipt/StudentInfo'
 import { PaymentDetails } from '@/components/receipt/PaymentDetails'
@@ -29,16 +29,26 @@ export default async function ReceiptPage({ params }: PageProps) {
     notFound()
   }
 
+  // Redirect to 404 if the installment is not explicitly in 'paid' status
+  // This ensures rejected or any other status cannot access receipt
+  if (installment.status.toLowerCase() !== 'paid') {
+    notFound()
+  }
+
   // Get all installments for this student
   const allInstallments = await db.query.installments.findMany({
     where: eq(installments.studentId, student.id),
     orderBy: (installments, { asc }) => [asc(installments.installmentNumber)],
   })
 
-  const installmentsList = Array.from({ length: 7 }, (_, i) => ({
-    number: i + 1,
-    amount: allInstallments.find((inst) => inst.installmentNumber === i + 1)?.amount || null,
-  }))
+  // Filter to only include installments that are in 'paid' status for the grid
+  const installmentsList = Array.from({ length: 7 }, (_, i) => {
+    const foundInstallment = allInstallments.find((inst) => inst.installmentNumber === i + 1);
+    return {
+      number: i + 1,
+      amount: foundInstallment?.status?.toLowerCase() === 'paid' ? foundInstallment.amount : null,
+    };
+  });
 
   return (
     <div className="max-w-3xl mx-auto bg-white shadow-lg rounded-lg my-8 print:shadow-none">
@@ -65,10 +75,10 @@ export default async function ReceiptPage({ params }: PageProps) {
       />
 
       <ReceiptFooter
-        receivedBy="Admin Name" // Add to schema if needed
+        receivedBy="Khin Htet Htet Naing"
         receivedDate={installment.paymentDate || installment.createdAt}
         remarks={installment.note || undefined}
-        qrCodeUrl="/qr-code.png" // Add actual QR code generation
+        qrCodeUrl="/qr-code.svg"
         address="No.483, Aye Yeik Thor Condo 9C, Aye Yeik Thor 2nd Street, Sayasan Quarter, Bahan Tsp, Yangon, Myanmar"
         contactNumbers={[
           '09 79 3333 555',
@@ -77,7 +87,7 @@ export default async function ReceiptPage({ params }: PageProps) {
           '09 881 555 880',
           '09 881 555 990',
         ]}
-        website="www.iduisn.co.uk"
+        website="www.edusn.co.uk"
       />
     </div>
   )

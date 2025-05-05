@@ -18,12 +18,12 @@ export function PaymentDetails({
         <dd className="text-sm font-semibold text-gray-900">{formattedAmount}</dd>
       </div>
       <div className="space-y-1">
-        <dt className="text-sm font-medium text-gray-600">CASH/BANK</dt>
-        <dd className="text-sm text-gray-900">{paymentMethod}</dd>
+        <dt className="text-sm font-medium text-gray-600">PAYMENT METHOD</dt>
+        <dd className="text-sm text-gray-900 capitalize">{paymentMethod}</dd>
       </div>
       <div className="space-y-1">
         <dt className="text-sm font-medium text-gray-600">BANK NAME</dt>
-        <dd className="text-sm text-gray-900">{bankName}</dd>
+        <dd className="text-sm text-gray-900">{paymentMethod === 'bank' && bankName ? bankName : 'N/A'}</dd>
       </div>
     </div>
   )

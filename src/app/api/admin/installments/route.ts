@@ -45,7 +45,7 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { id, status, paymentMethod, paymentDate, paymentReceiptUrl } = await request.json();
+    const { id, status, note, paymentDate } = await request.json();
 
     if (!id || !status) {
       return NextResponse.json(
@@ -54,21 +54,36 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Get current installment to preserve student-provided payment information
+    const currentInstallment = await db
+      .select()
+      .from(installments)
+      .where(eq(installments.id, id))
+      .limit(1);
+
+    if (!currentInstallment || currentInstallment.length === 0) {
+      return NextResponse.json(
+        { error: 'Installment not found' },
+        { status: 404 }
+      );
+    }
+
     const updateData: any = {
-      status
+      status,
+      updatedAt: new Date()
     };
 
+    if (note) {
+      updateData.note = note;
+    }
+
     if (status === 'paid') {
-      if (!paymentMethod || !paymentDate) {
-        return NextResponse.json(
-          { error: 'Payment method and date are required for paid status' },
-          { status: 400 }
-        );
-      }
-      
-      updateData.paymentMethod = paymentMethod as (typeof paymentMethodEnum.enumValues)[number];
-      updateData.paymentDate = new Date(paymentDate);
-      updateData.paymentReceiptUrl = paymentReceiptUrl || null;
+      updateData.paymentDate = new Date(paymentDate || new Date());
+      // Payment method and bank name are kept as is from the student's submission
+    } else if (status === 'rejected') {
+      // For rejected status, keep the payment information for record-keeping
+      // but set payment date to null
+      updateData.paymentDate = null;
     }
 
     const result = await db
